@@ -1,0 +1,3510 @@
+zabbix_export:
+  version: '6.0'
+  date: '2024-04-20T18:12:33Z'
+  groups:
+    - uuid: e960332b3f6c46a1956486d4f3f99fce
+      name: 'Templates/Server hardware'
+  templates:
+    - uuid: 39f47d9b91f442daa31ac91228e73d60
+      template: 'Graviton Tundra by HTTP'
+      name: 'Graviton Tundra by HTTP'
+      description: |
+        Template for monitoring Graviton Tundra BMC by Redfish API
+        
+        By Maxim.M.Demichev
+      groups:
+        - name: 'Templates/Server hardware'
+      items:
+        - uuid: 2a32467526c84651b8bf832cdea5d335
+          name: 'Drives Sensors'
+          type: DEPENDENT
+          key: graviton.sensors.drives
+          delay: '0'
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          description: 'Сенсоры дисков'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  
+                  var result = [];
+                  
+                  var storage_units = sensors;
+                  
+                  if (storage_units instanceof Array) {
+                      storage_units.forEach(function (storage_unit) {
+                          var storage_unit_name = storage_unit.body.Name;
+                  
+                          if (storage_unit.body.Drives instanceof Array) {
+                              storage_unit.body.Drives.forEach(function (drive) {
+                                  response = request(params.url + drive["@odata.id"]);
+                                  result.push({
+                                      'StorageUnit': storage_unit_name, 
+                                      'Name': response.body.Name, 
+                                      'Model': response.body.Model, 
+                                      'CapacityBytes': response.body.CapacityBytes,
+                                      'Health': response.body.Status.Health, 
+                                      'State': response.body.Status.State
+                                  });
+                              });
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          master_item:
+            key: graviton.sensors.storage
+          tags:
+            - tag: Application
+              value: disk_drives
+            - tag: Application
+              value: storage
+        - uuid: a5236379884a4e17b2b7b04b578a355b
+          name: 'Graviton: Get Ethernet Sensors'
+          type: HTTP_AGENT
+          key: graviton.sensors.ethernet
+          delay: 5m
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          description: 'Сенсоры интерфейсов Ethernet'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  var result = [];
+                  
+                  var index = params.url.indexOf('://');
+                  index = params.url.indexOf('/', (index !== -1) ? (index + 3) : 0);
+                  if (index !== -1) {
+                      params.url = params.url.substring(0, index);
+                  }
+                  
+                  if (sensors.Members instanceof Array) {
+                      sensors.Members.forEach(function (sensor) {
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              response = request(params.url + sensor["@odata.id"]);
+                              if (true) {
+                                  if (typeof response.body.Name === 'string') {
+                                      result.push({ 
+                                        'Name': response.body.Name, 
+                                        'LinkStatus': response.body.LinkStatus,
+                                        'Health': response.body.Status.Health, 
+                                        'State': response.body.Status.State
+                                      });
+                                  }
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Systems/Self/EthernetInterfaces'
+          tags:
+            - tag: Application
+              value: ethernet
+            - tag: Application
+              value: raw
+        - uuid: 20903ee451e4447d96ce5eb1398769c7
+          name: 'Fan Sensors'
+          type: DEPENDENT
+          key: graviton.sensors.fans
+          delay: '0'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          description: 'Сенсоры вентиляторов'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var result = [];
+                  
+                  if (sensors.Fans instanceof Array) {
+                      sensors.Fans.forEach(function (sensor) {
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              if (getField(sensor, 'PhysicalContext', '') === 'Fan') {
+                                  result.push(
+                                    { 
+                                      'Name': getField(sensor, 'Name', ''),
+                                      'LowerThresholdCritical': getField(sensor, 'LowerThresholdCritical', ''),
+                                      'LowerThresholdFatal': getField(sensor, 'LowerThresholdFatal', ''),
+                                      'LowerThresholdNonCritical': getField(sensor, 'LowerThresholdNonCritical', ''),
+                                      'UpperThresholdCritical': getField(sensor, 'UpperThresholdCritical', ''),
+                                      'UpperThresholdFatal': getField(sensor, 'UpperThresholdFatal', ''),
+                                      'UpperThresholdNonCritical': getField(sensor, 'UpperThresholdNonCritical', ''),
+                                      'Reading': getField(sensor, 'Reading', ''),
+                                      'Health': getField(sensor, 'Status.Health', ''),
+                                      'State': getField(sensor, 'Status.State', '')
+                                    }
+                                  );
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          master_item:
+            key: graviton.sensors.thermal
+          tags:
+            - tag: Application
+              value: fans
+            - tag: Application
+              value: thermal
+        - uuid: 5f284ddbb8f149298bd8dd5d97b5b54b
+          name: 'Graviton: Get Memory Sensors'
+          type: HTTP_AGENT
+          key: graviton.sensors.memory
+          delay: 5m
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          description: 'Сенсоры оперативной памяти'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  var result = [];
+                  
+                  var index = params.url.indexOf('://');
+                  index = params.url.indexOf('/', (index !== -1) ? (index + 3) : 0);
+                  if (index !== -1) {
+                      params.url = params.url.substring(0, index);
+                  }
+                  
+                  if (sensors.Members instanceof Array) {
+                      sensors.Members.forEach(function (sensor) {
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              response = request(params.url + sensor["@odata.id"]);
+                              if (true) {
+                                  if (typeof response.body.Name === 'string') {
+                                      result.push({ 
+                                        'Name': response.body.Name, 
+                                        'CapacityMiB': response.body.CapacityMiB,
+                                        'Health': response.body.Status.Health, 
+                                        'State': response.body.Status.State
+                                      });
+                                  }
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Systems/Self/Memory'
+          tags:
+            - tag: Application
+              value: memory
+            - tag: Application
+              value: raw
+        - uuid: c1604379ee8446899de32f7b040ce60c
+          name: 'Graviton: Get Network Adapter Sensors'
+          type: HTTP_AGENT
+          key: graviton.sensors.net_adapters
+          delay: 5m
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          description: 'Сенсоры сетевых адаптеров'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  var result = [];
+                  
+                  var index = params.url.indexOf('://');
+                  index = params.url.indexOf('/', (index !== -1) ? (index + 3) : 0);
+                  if (index !== -1) {
+                      params.url = params.url.substring(0, index);
+                  }
+                  
+                  if (sensors.Members instanceof Array) {
+                      sensors.Members.forEach(function (sensor) {
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              response = request(params.url + sensor["@odata.id"]);
+                              if (true) {
+                                  if (typeof response.body.Name === 'string') {
+                                      result.push({ 
+                                        'Name': response.body.Name, 
+                                        'LinkStatus': response.body.LinkStatus,
+                                        'Health': response.body.Status.Health, 
+                                        'State': response.body.Status.State
+                                      });
+                                  }
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Chassis/Self/NetworkAdapters'
+          tags:
+            - tag: Application
+              value: network_adapters
+            - tag: Application
+              value: raw
+        - uuid: b5dce4eeea6e4d81b9cf2395041b3b36
+          name: 'Graviton: Get Power Sensors'
+          type: HTTP_AGENT
+          key: graviton.sensors.power
+          delay: 5m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          description: 'Сенсоры электропитания'
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Chassis/Self/Power'
+          tags:
+            - tag: Application
+              value: power
+            - tag: Application
+              value: raw
+        - uuid: eae27c7e745b41709f22c204f6a1aaf8
+          name: 'Power Supplies Sensors'
+          type: DEPENDENT
+          key: graviton.sensors.power_supplies
+          delay: '0'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          description: 'Сенсоры источников питания'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var result = [];
+                  
+                  if (sensors.PowerSupplies instanceof Array) {
+                      sensors.PowerSupplies.forEach(function (sensor) {
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              if (true) {
+                                  result.push(
+                                    { 
+                                      'Name': getField(sensor, 'Name', ''),
+                                      'Fan_1': getField(sensor, 'Fan_1', ''),
+                                      'Fan_2': getField(sensor, 'Fan_2', ''),
+                                      'LineInputCurrent': getField(sensor, 'LineInputCurrent', ''),
+                                      'LineInputVoltage': getField(sensor, 'LineInputVoltage', ''),
+                                      'LineInputWatts': getField(sensor, 'LineInputWatts', ''),
+                                      'PowerCapacityCurrent': getField(sensor, 'PowerCapacityCurrent', ''),
+                                      'PowerCapacityVoltage': getField(sensor, 'PowerCapacityVoltage', ''),
+                                      'PowerCapacityWatts': getField(sensor, 'PowerCapacityWatts', ''),
+                                      'PowerOutputCurrent': getField(sensor, 'PowerOutputCurrent', ''),
+                                      'PowerOutputVoltage': getField(sensor, 'PowerOutputVoltage', ''),
+                                      'PowerOutputWatts': getField(sensor, 'PowerOutputWatts', ''),
+                                      'Temperature_1': getField(sensor, 'Temperature_1', ''),
+                                      'Temperature_2': getField(sensor, 'Temperature_2', ''),
+                                      'Health': getField(sensor, 'Status.Health', ''),
+                                      'Health': getField(sensor, 'Status.Health', ''),
+                                      'State': getField(sensor, 'Status.State', '')
+                                    }
+                                  );
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          master_item:
+            key: graviton.sensors.power
+          tags:
+            - tag: Application
+              value: power
+            - tag: Application
+              value: power_supplies
+        - uuid: 143799adaf2b4a2986621cd233983780
+          name: 'Graviton: Get Processors Sensors'
+          type: HTTP_AGENT
+          key: graviton.sensors.processors
+          delay: 5m
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          description: 'Сенсоры процессоров'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  var result = [];
+                  
+                  var index = params.url.indexOf('://');
+                  index = params.url.indexOf('/', (index !== -1) ? (index + 3) : 0);
+                  if (index !== -1) {
+                      params.url = params.url.substring(0, index);
+                  }
+                  
+                  
+                  if (sensors.Members instanceof Array) {
+                      // Проходка в цикле по всем Storage Unit
+                  
+                      sensors.Members.forEach(function (sensor) {
+                          // Для каждого Storage Unit выполняем отдельный запрос на получение его сенсоров
+                  
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              var response = request(params.url + sensor["@odata.id"]);
+                              if (true) {
+                                  if (typeof response.body.Name === 'string') {
+                                      result.push({ 
+                                        'Name': response.body.Name, 
+                                        'Model': response.body.Model,
+                                        'TotalCores': response.body.TotalCores, 
+                                        'TotalThreads': response.body.TotalThreads,
+                                        'Health': response.body.Status.Health, 
+                                        'State': response.body.Status.State
+                                      });
+                                  }
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Systems/Self/Processors'
+          tags:
+            - tag: Application
+              value: processors
+            - tag: Application
+              value: raw
+        - uuid: a694b2f34f2f442d9466528653bc8105
+          name: 'Graviton: Get Storage Sensors'
+          type: HTTP_AGENT
+          key: graviton.sensors.storage
+          delay: 5m
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          description: 'Сенсоры систем хранения данных'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  var result = [];
+                  
+                  var index = params.url.indexOf('://');
+                  index = params.url.indexOf('/', (index !== -1) ? (index + 3) : 0);
+                  if (index !== -1) {
+                      params.url = params.url.substring(0, index);
+                  }
+                  
+                  
+                  if (sensors.Members instanceof Array) {
+                      // Проходка в цикле по всем Storage Unit
+                  
+                      sensors.Members.forEach(function (sensor) {
+                          // Для каждого Storage Unit выполняем отдельный запрос на получение его сенсоров
+                  
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              var response = request(params.url + sensor["@odata.id"]);
+                              result.push(response);
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Systems/Self/Storage'
+          tags:
+            - tag: Application
+              value: raw
+            - tag: Application
+              value: storage
+        - uuid: 2efd35b9de064a7eabce592741bee860
+          name: 'Storage Controllers Sensors'
+          type: DEPENDENT
+          key: graviton.sensors.storage_controllers
+          delay: '0'
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          description: 'Сенсоры контроллеров СХД'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var result = [];
+                  
+                  
+                  
+                  var storage_units = sensors;
+                  
+                  if (storage_units instanceof Array) {
+                      storage_units.forEach(function (storage_unit) {
+                          var storage_unit_name = storage_unit.body.Name;
+                  
+                          if (storage_unit.body.StorageControllers instanceof Array) {
+                              storage_unit.body.StorageControllers.forEach(function (sensor) {
+                                  if (typeof sensor["@odata.id"] === 'string') {
+                                      if (true) {
+                                          result.push(
+                                            { 
+                                              'Name': getField(sensor, 'Name', ''),
+                                              'Health': getField(sensor, 'Status.Health', ''),
+                                              'State': getField(sensor, 'Status.State', '')
+                                            }
+                                          );
+                                      }
+                                  }
+                              });
+                          }
+                      });
+                  }
+                  
+                  
+                  return JSON.stringify(result);
+          master_item:
+            key: graviton.sensors.storage
+          tags:
+            - tag: Application
+              value: storage
+            - tag: Application
+              value: storage_controllers
+        - uuid: e317ffcbb83f4ae79571cf79d02c42ef
+          name: 'Temperature Sensors'
+          type: DEPENDENT
+          key: graviton.sensors.temp
+          delay: '0'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          description: 'Сенсоры вентиляторов'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var result = [];
+                  
+                  if (sensors.Temperatures instanceof Array) {
+                      sensors.Temperatures.forEach(function (sensor) {
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              if (true) {
+                                  result.push(
+                                    { 
+                                      'Name': getField(sensor, 'Name', ''),
+                                      'LowerThresholdCritical': getField(sensor, 'LowerThresholdCritical', ''),
+                                      'LowerThresholdFatal': getField(sensor, 'LowerThresholdFatal', ''),
+                                      'LowerThresholdNonCritical': getField(sensor, 'LowerThresholdNonCritical', ''),
+                                      'UpperThresholdCritical': getField(sensor, 'UpperThresholdCritical', ''),
+                                      'UpperThresholdFatal': getField(sensor, 'UpperThresholdFatal', ''),
+                                      'UpperThresholdNonCritical': getField(sensor, 'UpperThresholdNonCritical', ''),
+                                      'ReadingCelsius': getField(sensor, 'ReadingCelsius', ''),
+                                      'Health': getField(sensor, 'Status.Health', ''),
+                                      'State': getField(sensor, 'Status.State', '')
+                                    }
+                                  );
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          master_item:
+            key: graviton.sensors.thermal
+          tags:
+            - tag: Application
+              value: temperature
+            - tag: Application
+              value: thermal
+        - uuid: c6b1818e42104a59822dd49b271ebb39
+          name: 'Graviton: Get Thermal Sensors'
+          type: HTTP_AGENT
+          key: graviton.sensors.thermal
+          delay: 5m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          description: 'Сенсоры температуры и вентиляторов'
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Chassis/Self/Thermal'
+          tags:
+            - tag: Application
+              value: raw
+            - tag: Application
+              value: thermal
+        - uuid: 3a43b492f3f64bed861c680f462a0e05
+          name: 'Voltage Sensors'
+          type: DEPENDENT
+          key: graviton.sensors.voltage
+          delay: '0'
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          description: 'Сенсоры напряжения'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var result = [];
+                  
+                  if (sensors.Voltages instanceof Array) {
+                      sensors.Voltages.forEach(function (sensor) {
+                          if (typeof sensor["@odata.id"] === 'string') {
+                              if (true) {
+                                  result.push(
+                                    { 
+                                      'Name': getField(sensor, 'Name', ''),
+                  
+                                      'LowerThresholdCritical': getField(sensor, 'LowerThresholdCritical', ''),
+                                      'LowerThresholdFatal': getField(sensor, 'LowerThresholdFatal', ''),
+                                      'LowerThresholdNonCritical': getField(sensor, 'LowerThresholdNonCritical', ''),
+                  
+                                      'UpperThresholdCritical': getField(sensor, 'UpperThresholdCritical', ''),
+                                      'UpperThresholdFatal': getField(sensor, 'UpperThresholdFatal', ''),
+                                      'UpperThresholdNonCritical': getField(sensor, 'UpperThresholdNonCritical', ''),
+                  
+                                      'ReadingVolts': getField(sensor, 'ReadingVolts', ''),
+                                      'Health': getField(sensor, 'Status.Health', ''),
+                                      'State': getField(sensor, 'Status.State', '')
+                                    }
+                                  );
+                              }
+                          }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          master_item:
+            key: graviton.sensors.power
+          tags:
+            - tag: Application
+              value: power
+            - tag: Application
+              value: voltage
+        - uuid: cf7e656f0eae43c490b23b033187c55d
+          name: 'Volumes Sensors'
+          type: DEPENDENT
+          key: graviton.sensors.volumes
+          delay: '0'
+          history: '0'
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          description: 'Сенсоры логических томов'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      sensors = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      sensors = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  
+                  var result = [];
+                  
+                  var storage_units = sensors;
+                  
+                  if (storage_units instanceof Array) {
+                      storage_units.forEach(function (storage_unit) {
+                          var storage_unit_name = storage_unit.body.Name;
+                          
+                          // Предположительно на контроллере может существовать только одна коллекция вольюмов
+                          var volume_collection = storage_unit.body.Volumes["@odata.id"];
+                          
+                          var response = request(params.url + volume_collection);
+                          if (response.body.Members instanceof Array) {
+                              response.body.Members.forEach(function (volume) {
+                                  response = request(params.url + volume["@odata.id"]);
+                                  if (typeof response.body.Name === 'string') {
+                                      result.push({
+                                          'Storageunit': storage_unit_name, 
+                                          'Name': response.body.Name, 
+                                          'CapacityBytes': response.body.CapacityBytes,
+                                          'Health': response.body.Status.Health, 
+                                          'State': response.body.Status.State
+                                      });
+                                   }
+                               });
+                           }
+                      });
+                  }
+                  
+                  return JSON.stringify(result);
+          master_item:
+            key: graviton.sensors.storage
+          tags:
+            - tag: Application
+              value: logical_volumes
+            - tag: Application
+              value: storage
+        - uuid: 2730e9fd4a1a4c4b86db1cd47ddcd1a2
+          name: 'Firmware version'
+          type: DEPENDENT
+          key: graviton.server.firmware
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.firmware
+          master_item:
+            key: graviton.server.system
+          tags:
+            - tag: Application
+              value: system
+          triggers:
+            - uuid: c07a18380c9c4aee978c4c74f3134db0
+              expression: 'change(/Graviton Tundra by HTTP/graviton.server.firmware)=1'
+              name: 'Graviton server firmware version was changed to [{ITEM.VALUE}]'
+              priority: INFO
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+        - uuid: d3dec9a81e174507b3eb8752fb9b256a
+          name: 'Overall system health status'
+          type: DEPENDENT
+          key: graviton.server.health
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.status
+          master_item:
+            key: graviton.server.system
+          tags:
+            - tag: Application
+              value: system
+          triggers:
+            - uuid: 2bdea23510924612aee33281a324fa7d
+              expression: 'change(/Graviton Tundra by HTTP/graviton.server.health)=1'
+              name: 'Graviton server health was changed to [{ITEM.VALUE}]'
+              priority: WARNING
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+        - uuid: 756c4a4e768e45589d4c567806238723
+          name: 'Hardware model name'
+          type: DEPENDENT
+          key: graviton.server.hw.model
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: MODEL
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.model
+          master_item:
+            key: graviton.server.system
+          tags:
+            - tag: Application
+              value: system
+          triggers:
+            - uuid: 0b5e21eaec274b15b7280b2e26b87acc
+              expression: 'change(/Graviton Tundra by HTTP/graviton.server.hw.model)=1'
+              name: 'Graviton server model was changed to [{ITEM.VALUE}]'
+              priority: AVERAGE
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+        - uuid: 0dd569bc280c46e48b32f6afaa26e163
+          name: 'Hardware serial number'
+          type: DEPENDENT
+          key: graviton.server.hw.serialnumber
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: SERIALNO_A
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.serialnumber
+          master_item:
+            key: graviton.server.system
+          tags:
+            - tag: Application
+              value: system
+          triggers:
+            - uuid: 706faa1324844df1a17fd3b79dbe0544
+              expression: 'change(/Graviton Tundra by HTTP/graviton.server.hw.serialnumber)=1'
+              name: 'Graviton server serial number was changed to [{ITEM.VALUE}]'
+              priority: AVERAGE
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+        - uuid: f78498f3713f4a619b2fffd1fb8277eb
+          name: 'Indicator LED State'
+          type: DEPENDENT
+          key: graviton.server.indicator_led
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.led
+          master_item:
+            key: graviton.server.system
+          tags:
+            - tag: Application
+              value: system
+          triggers:
+            - uuid: b3450f743d1c413589e4e96de977bf0c
+              expression: 'change(/Graviton Tundra by HTTP/graviton.server.indicator_led)=1'
+              name: 'Graviton LED state was changed to [{ITEM.VALUE}]'
+              priority: WARNING
+              type: MULTIPLE
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+        - uuid: b024771642a246ce984b300e17a06f49
+          name: 'Overall system state'
+          type: DEPENDENT
+          key: graviton.server.state
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.state
+          master_item:
+            key: graviton.server.system
+          tags:
+            - tag: Application
+              value: system
+          triggers:
+            - uuid: 043ae1953d8e49c38605fd6886124224
+              expression: 'last(/Graviton Tundra by HTTP/graviton.server.state)="Disabled"'
+              name: 'Graviton server health was changed to [Disabled]'
+              priority: AVERAGE
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+            - uuid: 7e18394b784248a3809020f9eb142e03
+              expression: 'change(/Graviton Tundra by HTTP/graviton.server.state)=1'
+              name: 'Graviton server state was changed to [{ITEM.VALUE}]'
+              priority: WARNING
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Graviton server health was changed to [Disabled]'
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.server.state)="Disabled"'
+              tags:
+                - tag: component
+                  value: system
+        - uuid: ae926c99479a4af09c4865f304b6dae2
+          name: 'Overall system health status'
+          type: DEPENDENT
+          key: graviton.server.status
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.status
+          master_item:
+            key: graviton.server.system
+          tags:
+            - tag: Application
+              value: system
+        - uuid: 03934149bb084235920b4f16a5fba7b7
+          name: 'Graviton: Get System'
+          type: HTTP_AGENT
+          key: graviton.server.system
+          delay: 5m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          authtype: BASIC
+          username: '{$API.USER}'
+          password: '{$API.PASSWORD}'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  function request(url) {
+                      api_request = new CurlHttpRequest();
+                      api_request.AddHeader('Authorization: Basic ' + btoa(params.user + ':' + params.password));
+                      Zabbix.Log(4, '[ GRAVITON ] Sending request: ' + url);
+                  
+                      try {
+                          response = api_request.Get(url);
+                      } catch (error) {
+                          Zabbix.Log(4, '[ GRAVITON ] Get request returned error ' + error);
+                          throw 'Get request returned error ' + error + '. Check debug log for more information.';
+                      }
+                  
+                      Zabbix.Log(4, '[ GRAVITON ] Received response with status code ' +
+                          api_request.Status() + '\n' + response);
+                  
+                      if (api_request.Status() !== 200) {
+                          var message = 'Request failed with status code ' + api_request.Status();
+                          if (response !== null) {
+                              if (typeof response.message === 'string') {
+                                  message += ': ' + response.message;
+                              }
+                          }
+                  
+                          throw message + ' Check debug log for more information.';
+                      }
+                  
+                      if (response !== null) {
+                          try {
+                              response = JSON.parse(response);
+                          }
+                          catch (error) {
+                              Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                              response = null;
+                          }
+                      }
+                  
+                      return {
+                          status: api_request.Status(),
+                          body: response
+                      };
+                  }
+                  
+                  function getField(object, field, def) {
+                      var names = field.split('.');
+                      var name = names.shift();
+                  
+                      while (typeof name !== 'undefined') {
+                          if (typeof object === undefined || typeof object[name] === 'undefined') {
+                              return def;
+                          }
+                  
+                          object = object[name];
+                          name = names.shift();
+                      }
+                  
+                      return object;
+                  }
+                  
+                  try {
+                      system = JSON.parse(value);
+                  }
+                  catch (error) {
+                      Zabbix.Log(4, '[ GRAVITON ] Failed to parse response.');
+                      system = null;
+                  }
+                  
+                  var params = {
+                      url: '{$API.URL}',
+                      user: '{$API.USER}',
+                      password: '{$API.PASSWORD}'
+                  };
+                  var result = {
+                      model: '',
+                      serialnumber: '',
+                      status: '',
+                      firmware: ''
+                  };
+                  
+                  var index = params.url.indexOf('://');
+                  index = params.url.indexOf('/', (index !== -1) ? (index + 3) : 0);
+                  if (index !== -1) {
+                      params.url = params.url.substring(0, index);
+                  }
+                  
+                  result.model = getField(system, 'Model', '');
+                  result.serialnumber = getField(system, 'SerialNumber', '');
+                  result.status = getField(system, 'Status.Health', '');
+                  result.state = getField(system, 'Status.State', '');
+                  result.led = getField(system, 'IndicatorLED', '');
+                  
+                  response = request(params.url + '/redfish/v1/Managers/Self');
+                  result.firmware = getField(response.body, 'FirmwareVersion', '');
+                  
+                  return JSON.stringify(result);
+          timeout: 30s
+          url: '{$API.URL}/redfish/v1/Systems/Self'
+          tags:
+            - tag: Application
+              value: raw
+            - tag: Application
+              value: system
+      discovery_rules:
+        - uuid: d001235498284df0b209323f3bd1f4d2
+          name: 'Drives Discovery'
+          type: DEPENDENT
+          key: graviton.drives.discovery
+          delay: '0'
+          status: DISABLED
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: 6a9906746a2049e095192e96d7369d27
+              name: 'Drive [{#STORAGE_UNIT}:{#NAME}] CapacityBytes'
+              type: DEPENDENT
+              key: 'graviton.drive.capacity_bytes[{#STORAGE_UNIT},{#NAME}]'
+              delay: '0'
+              units: b
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}''&&@.StorageUnit==''{#STORAGE_UNIT}'')].CapacityBytes.first()'
+              master_item:
+                key: graviton.sensors.drives
+              tags:
+                - tag: Application
+                  value: disk_drives
+              trigger_prototypes:
+                - uuid: 7b487c48d4e34a1c90311857f795bcc5
+                  expression: 'change(/Graviton Tundra by HTTP/graviton.drive.capacity_bytes[{#STORAGE_UNIT},{#NAME}])<>0'
+                  name: 'Capacity of drive {#NAME} on storage unit {#STORAGE_UNIT} was changed was changed to [{ITEM.VALUE}B]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: disk_drives
+            - uuid: 5b40c462a8b74168b48be9f755931cdd
+              name: 'Drive [{#STORAGE_UNIT}:{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.drive.health[{#STORAGE_UNIT},{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}''&&@.StorageUnit==''{#STORAGE_UNIT}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.drives
+              tags:
+                - tag: Application
+                  value: disk_drives
+              trigger_prototypes:
+                - uuid: a2d819412d894261ba8c896de20ecaef
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.drive.health[{#STORAGE_UNIT},{#NAME}])<>"OK"'
+                  name: 'Health of drive {#NAME} on storage unit [{#STORAGE_UNIT}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: disk_drives
+            - uuid: b446d8f5c162406fad7bbc255ff66365
+              name: 'Drive [{#STORAGE_UNIT}:{#NAME}] Model'
+              type: DEPENDENT
+              key: 'graviton.drive.model[{#STORAGE_UNIT},{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}''&&@.StorageUnit==''{#STORAGE_UNIT}'')].Model.first()'
+              master_item:
+                key: graviton.sensors.drives
+              tags:
+                - tag: Application
+                  value: disk_drives
+              trigger_prototypes:
+                - uuid: c5ae7fe757424ca79b913332018a1b31
+                  expression: 'change(/Graviton Tundra by HTTP/graviton.drive.model[{#STORAGE_UNIT},{#NAME}])<>0'
+                  name: 'Model of drive {#NAME} on storage unit {#STORAGE_UNIT} was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: disk_drives
+            - uuid: 84788957abe24bd28da498eb16beea4a
+              name: 'Drive [{#STORAGE_UNIT}:{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.drive.state[{#STORAGE_UNIT},{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}''&&@.StorageUnit==''{#STORAGE_UNIT}'')].State.first()'
+              master_item:
+                key: graviton.sensors.drives
+              tags:
+                - tag: Application
+                  value: disk_drives
+              trigger_prototypes:
+                - uuid: 100581cbfd944c989ec1e90ae939ca97
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.drive.state[{#STORAGE_UNIT},{#NAME}])="Disabled"'
+                  name: 'State of drive {#NAME} on storage unit [{#STORAGE_UNIT}] was changed to [Disabled]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: disk_drives
+                - uuid: 07bbb95c50e043118468fb0bd8dfa489
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.drive.state[{#STORAGE_UNIT},{#NAME}])<>"Enabled"'
+                  name: 'State of drive {#NAME} on storage unit [{#STORAGE_UNIT}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of drive {#NAME} on storage unit [{#STORAGE_UNIT}] was changed to [Disabled]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.drive.state[{#STORAGE_UNIT},{#NAME}])="Disabled"'
+                  tags:
+                    - tag: component
+                      value: disk_drives
+          master_item:
+            key: graviton.sensors.drives
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+            - lld_macro: '{#STORAGE_UNIT}'
+              path: $.StorageUnit
+        - uuid: ed651d24f1154401b5ce65c8719aa256
+          name: 'Ethernet Interfaces Discovery'
+          type: DEPENDENT
+          key: graviton.ethernet_interfaces.discovery
+          delay: '0'
+          status: DISABLED
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: 85f3501bd73c4d019c74a77282fdfe30
+              name: 'Ethernet Interface [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.ethernet_interface.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.ethernet
+              tags:
+                - tag: Application
+                  value: ethernet
+              trigger_prototypes:
+                - uuid: ef189ea5aa58453184ac7094912c08e0
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.ethernet_interface.health[{#NAME}])<>"OK"'
+                  name: 'Health of ethernet interface [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: ethernet
+            - uuid: ac0ff6a3f0c54f0cb4ca233031896536
+              name: 'Ethernet Interface [{#NAME}] LinkStatus'
+              type: DEPENDENT
+              key: 'graviton.ethernet_interface.link_status[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].LinkStatus.first()'
+              master_item:
+                key: graviton.sensors.ethernet
+              tags:
+                - tag: Application
+                  value: ethernet
+              trigger_prototypes:
+                - uuid: 2f5f05d580da4731b5667b0ad3b67f6d
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.ethernet_interface.link_status[{#NAME}])<>"LinkUp"'
+                  name: 'Link status of ethernet interface [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: ethernet
+            - uuid: c0e6612acb2a4463a108f05310d027df
+              name: 'Ethernet Interface [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.ethernet_interface.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.ethernet
+              tags:
+                - tag: Application
+                  value: ethernet
+              trigger_prototypes:
+                - uuid: c2f66c69af4f4f229aeeb37cf00aaf35
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.ethernet_interface.state[{#NAME}])="Disabled"'
+                  name: 'State of ethernet interface [{#NAME}] was changed to [Disabled]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: ethernet
+                - uuid: 32a9b41089384f0a81dec93845cf4f9d
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.ethernet_interface.state[{#NAME}])<>"Enabled"'
+                  name: 'State of ethernet interface [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of ethernet interface [{#NAME}] was changed to [Disabled]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.ethernet_interface.state[{#NAME}])="Disabled"'
+                  tags:
+                    - tag: component
+                      value: ethernet
+          master_item:
+            key: graviton.sensors.ethernet
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+        - uuid: fb48fe1cbe084526a7b0ea0956038e25
+          name: 'Fan Discovery'
+          type: DEPENDENT
+          key: graviton.fan.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: a437eb614a224106ba87f409cedd76f9
+              name: 'Fan Sensor [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.fan.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.fans
+              tags:
+                - tag: Application
+                  value: fans
+              trigger_prototypes:
+                - uuid: f8f65a6ac4c24720bbb515955980c0b9
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.fan.health[{#NAME}])="Critical"'
+                  name: 'Health of fan sensor [{#NAME}] was changed to [Critical]'
+                  priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: fans
+                - uuid: 9b40f04e07214d4b8ac00c429a647a9e
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.fan.health[{#NAME}])="Warning"'
+                  name: 'Health of fan sensor [{#NAME}] was changed to [Warning]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of fan sensor [{#NAME}] was changed to [Critical]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.fan.health[{#NAME}])="Critical"'
+                  tags:
+                    - tag: component
+                      value: fans
+                - uuid: 44fc7cffb0de41159897221b408ca63d
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.fan.health[{#NAME}])<>"OK"'
+                  name: 'Health of fan sensor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of fan sensor [{#NAME}] was changed to [Warning]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.fan.health[{#NAME}])="Warning"'
+                  tags:
+                    - tag: component
+                      value: fans
+            - uuid: 96c2066bbea44558a457833b66b2510b
+              name: 'Fan [{#NAME}] RPM'
+              type: DEPENDENT
+              key: 'graviton.fan.speed_rpm[{#NAME}]'
+              delay: '0'
+              units: '!RPM'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Reading.first()'
+              master_item:
+                key: graviton.sensors.fans
+              tags:
+                - tag: Application
+                  value: fans
+              trigger_prototypes:
+                - uuid: 52db9ffb424d4b52b3a2c6fbf4764f36
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])>{#TR_UPPER_CRITICAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])<{#TR_LOWER_CRITICAL}
+                  name: 'Value [{ITEM.VALUE} RPM] of fan sensor [{#NAME}] out of CRITICAL range ({#TR_LOWER_CRITICAL}-{#TR_UPPER_CRITICAL})'
+                  priority: AVERAGE
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Value [{ITEM.VALUE} RPM] of fan sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])>{#TR_UPPER_FATAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])<{#TR_LOWER_FATAL}
+                  tags:
+                    - tag: component
+                      value: fans
+                - uuid: c31a5f83f62649f4862a441b8342c9d9
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])>{#TR_UPPER_FATAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])<{#TR_LOWER_FATAL}
+                  name: 'Value [{ITEM.VALUE} RPM] of fan sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                  priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: fans
+                - uuid: 0148ed54b8514e31a988f9bd9daa627b
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])>{#TR_UPPER_NON_CRITICAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])<{#TR_LOWER_NON_CRITICAL}
+                  name: 'Value [{ITEM.VALUE} RPM] of fan sensor [{#NAME}] out of NON CRITICAL range ({#TR_LOWER_NON_CRITICAL}-{#TR_UPPER_NON_CRITICAL})'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Value [{ITEM.VALUE} RPM] of fan sensor [{#NAME}] out of CRITICAL range ({#TR_LOWER_CRITICAL}-{#TR_UPPER_CRITICAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])>{#TR_UPPER_CRITICAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])<{#TR_LOWER_CRITICAL}
+                    - name: 'Value [{ITEM.VALUE} RPM] of fan sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])>{#TR_UPPER_FATAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.fan.speed_rpm[{#NAME}])<{#TR_LOWER_FATAL}
+                  tags:
+                    - tag: component
+                      value: fans
+            - uuid: 8d9aa51339f84470a610df232824b51c
+              name: 'Fan Sensor [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.fan.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.fans
+              tags:
+                - tag: Application
+                  value: fans
+              trigger_prototypes:
+                - uuid: 04b40d5e0c2b470d8de1e812fa52b5d7
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.fan.state[{#NAME}])="Absent"'
+                  name: 'State of fan sensor [{#NAME}] was changed to [Absent]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: fans
+                - uuid: e093342e3f3a490a8861d29f2f366175
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.fan.state[{#NAME}])<>"Enabled"'
+                  name: 'State of fan sensor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of fan sensor [{#NAME}] was changed to [Absent]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.fan.state[{#NAME}])="Absent"'
+                  tags:
+                    - tag: component
+                      value: fans
+          master_item:
+            key: graviton.sensors.fans
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+            - lld_macro: '{#TR_LOWER_CRITICAL}'
+              path: $.LowerThresholdCritical
+            - lld_macro: '{#TR_LOWER_FATAL}'
+              path: $.LowerThresholdFatal
+            - lld_macro: '{#TR_LOWER_NON_CRITICAL}'
+              path: $.LowerThresholdNonCritical
+            - lld_macro: '{#TR_UPPER_CRITICAL}'
+              path: $.UpperThresholdCritical
+            - lld_macro: '{#TR_UPPER_FATAL}'
+              path: $.UpperThresholdFatal
+            - lld_macro: '{#TR_UPPER_NON_CRITICAL}'
+              path: $.UpperThresholdNonCritical
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var valueArr = JSON.parse(value);
+                  
+                  var result = [];
+                  
+                  for (var i in valueArr) {
+                    var element = valueArr[i];
+                    if (element["{#TR_LOWER_CRITICAL}"] == "") {
+                      element["{#TR_LOWER_CRITICAL}"] = "-9999999";
+                    }
+                    if (element["{#TR_LOWER_FATAL}"] == "") {
+                      element["{#TR_LOWER_FATAL}"] = "-9999999";
+                    }
+                    if (element["{#TR_LOWER_NON_CRITICAL}"] == "") {
+                      element["{#TR_LOWER_NON_CRITICAL}"] = "-9999999";
+                    }
+                  
+                    if (element["{#TR_UPPER_CRITICAL}"] == "") {
+                      element["{#TR_UPPER_CRITICAL}"] = "9999999";
+                    }
+                    if (element["{#TR_UPPER_FATAL}"] == "") {
+                      element["{#TR_UPPER_FATAL}"] = "9999999";
+                    }
+                    if (element["{#TR_UPPER_NON_CRITICAL}"] == "") {
+                      element["{#TR_UPPER_NON_CRITICAL}"] = "9999999";
+                    }
+                  
+                    if (element["LowerThresholdCritical"] == "") {
+                      element["LowerThresholdCritical"] = "-9999999";
+                    }
+                    if (element["LowerThresholdFatal"] == "") {
+                      element["LowerThresholdFatal"] = "-9999999";
+                    }
+                    if (element["LowerThresholdNonCritical"] == "") {
+                      element["LowerThresholdNonCritical"] = "-9999999";
+                    }
+                  
+                    if (element["UpperThresholdCritical"] == "") {
+                      element["UpperThresholdCritical"] = "9999999";
+                    }
+                    if (element["UpperThresholdFatal"] == "") {
+                      element["UpperThresholdFatal"] = "9999999";
+                    }
+                    if (element["UpperThresholdNonCritical"] == "") {
+                      element["UpperThresholdNonCritical"] = "9999999";
+                    }
+                  
+                    result.push(element);
+                  }
+                  
+                  return JSON.stringify(result);
+        - uuid: d945f09a9bb64b8b80d919f2e0ea97d9
+          name: 'Logical Volumes Discovery'
+          type: DEPENDENT
+          key: graviton.logical_volumes.discovery
+          delay: '0'
+          status: DISABLED
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: 8e78313935b949d2a0fae4fe39509c38
+              name: 'Logical Volume [{#NAME}] CapacityBytes'
+              type: DEPENDENT
+              key: 'graviton.logical_volume.capatity_bytes[{#NAME}]'
+              delay: '0'
+              units: b
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].CapacityBytes.first()'
+              master_item:
+                key: graviton.sensors.volumes
+              tags:
+                - tag: Application
+                  value: logical_volumes
+              trigger_prototypes:
+                - uuid: 93709fe7cf3e43c39eced9d5a17435fb
+                  expression: 'change(/Graviton Tundra by HTTP/graviton.logical_volume.capatity_bytes[{#NAME}])<>0'
+                  name: 'Capacity of logical volume {#NAME} was changed to [{ITEM.VALUE} B]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: logical_volumes
+            - uuid: 09c881be033c49c7bbbc3bedb98c7c43
+              name: 'Logical Volume [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.logical_volume.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.volumes
+              tags:
+                - tag: Application
+                  value: logical_volumes
+              trigger_prototypes:
+                - uuid: 2e836addfdb549238b1698fbf5f72f6a
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.logical_volume.health[{#NAME}])<>"OK"'
+                  name: 'Health of logical volume [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: logical_volumes
+            - uuid: 78eb7b8ea48f43a1981b267f4f24a34d
+              name: 'Logical Volume [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.logical_volume.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.volumes
+              tags:
+                - tag: Application
+                  value: logical_volumes
+              trigger_prototypes:
+                - uuid: 6c5e364f199b4fcca675ee7de404f146
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.logical_volume.state[{#NAME}])="Disabled"'
+                  name: 'State of logical volume [{#NAME}] was changed to [Disabled]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: logical_volumes
+                - uuid: 56cd7de20432433cb6c6e67c77308314
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.logical_volume.state[{#NAME}])<>"Enabled"'
+                  name: 'State of logical volume [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of logical volume [{#NAME}] was changed to [Disabled]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.logical_volume.state[{#NAME}])="Disabled"'
+                  tags:
+                    - tag: component
+                      value: logical_volumes
+          master_item:
+            key: graviton.sensors.volumes
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+        - uuid: b176f96f27bf43aba99aa13f2316f0dc
+          name: 'Memory Discovery'
+          type: DEPENDENT
+          key: graviton.memory.discovery
+          delay: '0'
+          status: DISABLED
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: b1e35a33d6094e6da3af4bce620f7ae4
+              name: 'Memory Module [{#NAME}] CapacityMiB'
+              type: DEPENDENT
+              key: 'graviton.memory.capacity_mb[{#NAME}]'
+              delay: '0'
+              units: '!MB'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].CapacityMiB.first()'
+              master_item:
+                key: graviton.sensors.memory
+              tags:
+                - tag: Application
+                  value: memory
+              trigger_prototypes:
+                - uuid: 0fcb999a7cc2406cac2693747ea748bf
+                  expression: 'change(/Graviton Tundra by HTTP/graviton.memory.capacity_mb[{#NAME}])<>0'
+                  name: 'Capacity of memory module [{#NAME}] was changed to [{ITEM.VALUE} MB]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: memory
+            - uuid: f871e1d823614329a54de2d05d24e70c
+              name: 'Memory Module [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.memory.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.memory
+              tags:
+                - tag: Application
+                  value: memory
+              trigger_prototypes:
+                - uuid: 031e09d4899c4beaae1db719bf683c5f
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.memory.health[{#NAME}])<>"OK"'
+                  name: 'Health of memory module [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: memory
+            - uuid: 0978ebacf0074038bafd99da24ae4bf0
+              name: 'Memory Module [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.memory.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.memory
+              tags:
+                - tag: Application
+                  value: memory
+              trigger_prototypes:
+                - uuid: 61f7399e96a54ab58851d554c59615ca
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.memory.state[{#NAME}])="Disabled"'
+                  name: 'State of memory module [{#NAME}] was changed to [Disabled]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: memory
+                - uuid: 8de8fed646fa43a39bf5f6d700ed2660
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.memory.state[{#NAME}])<>"Enabled"'
+                  name: 'State of memory module [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of memory module [{#NAME}] was changed to [Disabled]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.memory.state[{#NAME}])="Disabled"'
+                  tags:
+                    - tag: component
+                      value: memory
+          master_item:
+            key: graviton.sensors.memory
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+        - uuid: c7b98f5c6c77452484061234a07e09a2
+          name: 'Network Adapters Discovery'
+          type: DEPENDENT
+          key: graviton.net_adapters.discovery
+          delay: '0'
+          item_prototypes:
+            - uuid: ae6daa879ed74f249de1993aa49d3673
+              name: 'Network Adapter [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.net_adapter.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.net_adapters
+              tags:
+                - tag: Application
+                  value: network_adapters
+              trigger_prototypes:
+                - uuid: c2eeed5d105c4731bc113decd4995fed
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.net_adapter.health[{#NAME}])<>"OK"'
+                  name: 'Health of network adapter [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: network_adapters
+            - uuid: 1679ecaa83004c218e4e996e0f4da4c4
+              name: 'Network Adapter [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.net_adapter.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.net_adapters
+              tags:
+                - tag: Application
+                  value: network_adapters
+              trigger_prototypes:
+                - uuid: d025a0cc7c904a25b10ddb8c38d05de6
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.net_adapter.state[{#NAME}])="Disabled"'
+                  name: 'State of network adapter [{#NAME}] was changed to [Disabled]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: network_adapters
+                - uuid: 8873b7b8893b49b7bb7f12ae796a2ec6
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.net_adapter.state[{#NAME}])<>"Enabled"'
+                  name: 'State of network adapter [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of network adapter [{#NAME}] was changed to [Disabled]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.net_adapter.state[{#NAME}])="Disabled"'
+                  tags:
+                    - tag: component
+                      value: network_adapters
+          master_item:
+            key: graviton.sensors.net_adapters
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+        - uuid: 1ffab5ef59514f64be4a17dc53fcc370
+          name: 'Power Supplies Discovery'
+          type: DEPENDENT
+          key: graviton.power_supplies.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: c2c106ae9df142efbebc5a33f785b41b
+              name: 'Power Supply [{#NAME}] Fan_1 Speed'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.fan_1[{#NAME}]'
+              delay: '0'
+              units: '!RPM'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Fan_1.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: 5c8eb56f342b498794317e9f45959732
+              name: 'Power Supply [{#NAME}] Fan_2 Speed'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.fan_2[{#NAME}]'
+              delay: '0'
+              units: '!RPM'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Fan_2.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: 89d1536f6fbf403bb17c5425ffb391fa
+              name: 'Power Supply [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+              trigger_prototypes:
+                - uuid: 87f169b32cef4d2f8bd5110bbff13acd
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.health[{#NAME}])="Critical"'
+                  name: 'Health of power supply [{#NAME}] was changed to [Critical]'
+                  priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: power_supplies
+                - uuid: 59eab8169a8f44438d60a6dbba47faf4
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.health[{#NAME}])="Warning"'
+                  name: 'Health of power supply [{#NAME}] was changed to [Warning]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of power supply [{#NAME}] was changed to [Critical]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.health[{#NAME}])="Critical"'
+                  tags:
+                    - tag: component
+                      value: power_supplies
+                - uuid: e74dd6b4a7304179a2e4ac06f779439d
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.health[{#NAME}])<>"Normal"'
+                  name: 'Health of power supply [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of power supply [{#NAME}] was changed to [Warning]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.health[{#NAME}])="Warning"'
+                  tags:
+                    - tag: component
+                      value: power_supplies
+            - uuid: de7843c5f3d844a488a9907796d53208
+              name: 'Power Supply [{#NAME}] LineInputCurrent'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.line_input_current[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!A'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].LineInputCurrent.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: 072b8805de1840f3a4b960e362532a08
+              name: 'Power Supply [{#NAME}] LineInputVoltage'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.line_input_voltage[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!V'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].LineInputVoltage.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: 68e1751bdc234f41b26636669d5aa2af
+              name: 'Power Supply [{#NAME}] LineInputWatts'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.line_input_watts[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!W'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].LineInputWatts.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: bf2ed544f1b94e34a108e6faed314c42
+              name: 'Power Supply [{#NAME}] PowerCapacityCurrent'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.power_capacity_current[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!A'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].PowerCapacityCurrent.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: 2589082250e84478838060886dedf509
+              name: 'Power Supply [{#NAME}] PowerCapacityVoltage'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.power_capacity_voltage[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!V'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].PowerCapacityVoltage.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: 2bf03ec64a7d4237a8f7cb7b7cba4879
+              name: 'Power Supply [{#NAME}] PowerCapacityWatts'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.power_capacity_watts[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!W'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].PowerCapacityWatts.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: c9c2e7e2969e4d51a7b09b48a6ffcaac
+              name: 'Power Supply [{#NAME}] PowerOutputCurrent'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.power_output_current[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!A'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].PowerOutputCurrent.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: 59083dba9cfd4071823cd908ef32557e
+              name: 'Power Supply [{#NAME}] PowerOutputVoltage'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.power_output_voltage[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!V'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].PowerOutputVoltage.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: a5456c29e3384d33acb6a4c6bf503da0
+              name: 'Power Supply [{#NAME}] PowerOutputWatts'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.power_output_watts[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!W'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].PowerOutputWatts.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: c1ecc432d9fe486a9d4580fa1737cd54
+              name: 'Power Supply [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+              trigger_prototypes:
+                - uuid: 2eeb4c1b1a3148ed8ad263b2b6d31238
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.state[{#NAME}])="Absent"'
+                  name: 'State of power supply [{#NAME}] was changed to [Absent]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: power_supplies
+                - uuid: e86f0c31734f4f848117a303ea79737c
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.state[{#NAME}])<>"Enabled"'
+                  name: 'State of power supply [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of power supply [{#NAME}] was changed to [Absent]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.power_supplies.state[{#NAME}])="Absent"'
+                  tags:
+                    - tag: component
+                      value: power_supplies
+            - uuid: 387cf15320714429aea454304db1f8bf
+              name: 'Power Supply [{#NAME}] Temperature_1'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.temp_1[{#NAME}]'
+              delay: '0'
+              units: '!°C'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Temperature_1.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+            - uuid: d93a2cacd32446bc8ab5b06edc04d3a2
+              name: 'Power Supply [{#NAME}] Temperature_2'
+              type: DEPENDENT
+              key: 'graviton.power_supplies.temp_2[{#NAME}]'
+              delay: '0'
+              units: '!°C'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Temperature_2.first()'
+                - type: REGEX
+                  parameters:
+                    - '([0-9.,]+)'
+                    - \1
+              master_item:
+                key: graviton.sensors.power_supplies
+              tags:
+                - tag: Application
+                  value: power_supplies
+          master_item:
+            key: graviton.sensors.power_supplies
+          lld_macro_paths:
+            - lld_macro: '{#FAN_1}'
+              path: $.Fan_1
+            - lld_macro: '{#FAN_2}'
+              path: $.Fan_2
+            - lld_macro: '{#LINE_INPUT_CURRENT}'
+              path: $.LineInputCurrent
+            - lld_macro: '{#LINE_INPUT_VOLTAGE}'
+              path: $.LineInputVoltage
+            - lld_macro: '{#LINE_INPUT_WATTS}'
+              path: $.LineInputWatts
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#POWER_CAPACITY_CURRENT}'
+              path: $.PowerCapacityCurrent
+            - lld_macro: '{#POWER_CAPACITY_VOLTAGE}'
+              path: $.PowerCapacityVoltage
+            - lld_macro: '{#POWER_CAPACITY_WATTS}'
+              path: $.PowerCapacityWatts
+            - lld_macro: '{#POWER_OUTPUT_CURRENT}'
+              path: $.PowerOutputCurrent
+            - lld_macro: '{#POWER_OUTPUT_VOLTAGE}'
+              path: $.PowerOutputVoltage
+            - lld_macro: '{#POWER_OUTPUT_WATTS}'
+              path: $.PowerOutputWatts
+            - lld_macro: '{#STATE}'
+              path: $.State
+            - lld_macro: '{#TEMPERATURE_1}'
+              path: $.Temperature_1
+            - lld_macro: '{#TEMPERATURE_2}'
+              path: $.Temperature_2
+          overrides:
+            - name: 'Not Discover Fan_1'
+              step: '1'
+              filter:
+                conditions:
+                  - macro: '{#FAN_1}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Fan_1
+                  discover: NO_DISCOVER
+            - name: 'Not Discover Fan_2'
+              step: '2'
+              filter:
+                conditions:
+                  - macro: '{#FAN_2}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Fan_2
+                  discover: NO_DISCOVER
+            - name: 'Not Discover LineInputCurrent'
+              step: '3'
+              filter:
+                conditions:
+                  - macro: '{#LINE_INPUT_CURRENT}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: LineInputCurrent
+                  discover: NO_DISCOVER
+            - name: 'Not Discover LineInputVoltage'
+              step: '4'
+              filter:
+                conditions:
+                  - macro: '{#LINE_INPUT_VOLTAGE}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: LineInputVoltage
+                  discover: NO_DISCOVER
+            - name: 'Not Discover LineInputWatts'
+              step: '5'
+              filter:
+                conditions:
+                  - macro: '{#LINE_INPUT_WATTS}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: LineInputWatts
+                  discover: NO_DISCOVER
+            - name: 'Not Discover PowerCapacityCurrent'
+              step: '6'
+              filter:
+                conditions:
+                  - macro: '{#POWER_CAPACITY_CURRENT}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: PowerCapacityCurrent
+                  discover: NO_DISCOVER
+            - name: 'Not Discover PowerCapacityVoltage'
+              step: '7'
+              filter:
+                conditions:
+                  - macro: '{#POWER_CAPACITY_VOLTAGE}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: PowerCapacityVoltage
+                  discover: NO_DISCOVER
+            - name: 'Not Discover PowerCapacityWatts'
+              step: '8'
+              filter:
+                conditions:
+                  - macro: '{#POWER_CAPACITY_WATTS}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: PowerCapacityWatts
+                  discover: NO_DISCOVER
+            - name: 'Not Discover PowerOutputCurrent'
+              step: '9'
+              filter:
+                conditions:
+                  - macro: '{#POWER_OUTPUT_CURRENT}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: PowerOutputCurrent
+                  discover: NO_DISCOVER
+            - name: 'Not Discover PowerOutputVoltage'
+              step: '10'
+              filter:
+                conditions:
+                  - macro: '{#POWER_OUTPUT_VOLTAGE}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: PowerOutputVoltage
+                  discover: NO_DISCOVER
+            - name: 'Not Discover PowerOutputWatts'
+              step: '11'
+              filter:
+                conditions:
+                  - macro: '{#POWER_OUTPUT_WATTS}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: PowerOutputWatts
+                  discover: NO_DISCOVER
+            - name: 'Not Discover Temperature_1'
+              step: '12'
+              filter:
+                conditions:
+                  - macro: '{#TEMPERATURE_1}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Temperature_1
+                  discover: NO_DISCOVER
+            - name: 'Not Discover Temperature_2'
+              step: '13'
+              filter:
+                conditions:
+                  - macro: '{#TEMPERATURE_2}'
+                    value: N\/A
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: Temperature_2
+                  discover: NO_DISCOVER
+        - uuid: d4f4f19e68454601af8da4d06e659dba
+          name: 'Processors Discovery'
+          type: DEPENDENT
+          key: graviton.processors.discovery
+          delay: '0'
+          status: DISABLED
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: 46af9c5a588d4fbdb9bdc95a0865d5cc
+              name: 'Processor [{#NAME}] TotalCores'
+              type: DEPENDENT
+              key: 'graviton.processors.cores[{#NAME}]'
+              delay: '0'
+              units: '!cores'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].TotalCores.first()'
+              master_item:
+                key: graviton.sensors.processors
+              tags:
+                - tag: Application
+                  value: processors
+              trigger_prototypes:
+                - uuid: 89e9a61bab754837b8e7424e814c4b44
+                  expression: 'change(/Graviton Tundra by HTTP/graviton.processors.cores[{#NAME}])=1'
+                  name: 'Number of cores of processor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: processors
+            - uuid: 447436043d614369a11c5a0dab839659
+              name: 'Processor [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.processors.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.processors
+              tags:
+                - tag: Application
+                  value: processors
+              trigger_prototypes:
+                - uuid: 9c472f5f15b942cf965b57aadb0761cd
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.processors.health[{#NAME}])<>"OK"'
+                  name: 'Health of processor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: processors
+            - uuid: 8a40ad670ab941bc927f7156f5adb120
+              name: 'Processor [{#NAME}] Model'
+              type: DEPENDENT
+              key: 'graviton.processors.model[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Model.first()'
+              master_item:
+                key: graviton.sensors.processors
+              tags:
+                - tag: Application
+                  value: processors
+              trigger_prototypes:
+                - uuid: 39694a4cb02145e7ad6d698fbe75d084
+                  expression: 'change(/Graviton Tundra by HTTP/graviton.processors.model[{#NAME}])=1'
+                  name: 'Model of processor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: processors
+            - uuid: 60e8c0931f4c40148016f66fea072234
+              name: 'Processor [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.processors.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.processors
+              tags:
+                - tag: Application
+                  value: processors
+              trigger_prototypes:
+                - uuid: 01a50bcea10b4fb59e65f62a96681d51
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.processors.state[{#NAME}])="Absent"'
+                  name: 'State of processor [{#NAME}] was changed to [Absent]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: processors
+                - uuid: 03ed203c8625490c9a840e95242db85b
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.processors.state[{#NAME}])<>"Enabled"'
+                  name: 'State of processor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of processor [{#NAME}] was changed to [Absent]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.processors.state[{#NAME}])="Absent"'
+                  tags:
+                    - tag: component
+                      value: processors
+            - uuid: d84fcaf7d4b3453cb59d1a742907ffe1
+              name: 'Processor [{#NAME}] TotalThreads'
+              type: DEPENDENT
+              key: 'graviton.processors.threads[{#NAME}]'
+              delay: '0'
+              units: '!threads'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].TotalThreads.first()'
+              master_item:
+                key: graviton.sensors.processors
+              tags:
+                - tag: Application
+                  value: processors
+              trigger_prototypes:
+                - uuid: 10e70ce8a1bb41279e2e8cc5f2bed9d6
+                  expression: 'change(/Graviton Tundra by HTTP/graviton.processors.threads[{#NAME}])=1'
+                  name: 'Number of threads of processor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: processors
+          master_item:
+            key: graviton.sensors.processors
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+        - uuid: deedfe8c59034516b21f0f6c781d8c4c
+          name: 'Storage Controllers Discovery'
+          type: DEPENDENT
+          key: graviton.storage_controllers.discovery
+          delay: '0'
+          status: DISABLED
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: 969214810be742628613fcb59048a9e5
+              name: 'Storage Controller [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.storage_controller.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.storage_controllers
+              tags:
+                - tag: Application
+                  value: storage_controllers
+              trigger_prototypes:
+                - uuid: 8676ad48d0bf47aeb54ad30b8cf3f2ac
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.storage_controller.health[{#NAME}])<>"OK"'
+                  name: 'Health of storage controller [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: storage_controllers
+            - uuid: b5693c954f5f417987d4e39ff042c522
+              name: 'Storage Controller [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.storage_controller.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.storage_controllers
+              tags:
+                - tag: Application
+                  value: storage_controllers
+              trigger_prototypes:
+                - uuid: 866aa5041cef41138635b84b69fb1b5a
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.storage_controller.state[{#NAME}])="Disabled"'
+                  name: 'State of storage controller [{#NAME}] was changed to [Disabled]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: storage_controllers
+                - uuid: 5d8d1724c4cf442b946d432122ce37f1
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.storage_controller.state[{#NAME}])<>"Enabled"'
+                  name: 'State of storage controller [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of storage controller [{#NAME}] was changed to [Disabled]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.storage_controller.state[{#NAME}])="Disabled"'
+                  tags:
+                    - tag: component
+                      value: storage_controllers
+          master_item:
+            key: graviton.sensors.storage_controllers
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+        - uuid: 64ccd8fe6e32479ba91ae6c3cb665d34
+          name: 'Temperature Discovery'
+          type: DEPENDENT
+          key: graviton.temp.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: ffadaa073a5c42c39c90b5bc0a8feefb
+              name: 'Temperature Sensor [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.temp.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.temp
+              tags:
+                - tag: Application
+                  value: temperature
+              trigger_prototypes:
+                - uuid: 28f4f07adacf4f6a94411005dfe2d4f9
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.temp.health[{#NAME}])="Critical"'
+                  name: 'Health of temperature sensor [{#NAME}] was changed to [Critical]'
+                  priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: temperature
+                - uuid: 84abbc48d61d41efaa9425d05d0a15ce
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.temp.health[{#NAME}])="Warning"'
+                  name: 'Health of temperature sensor [{#NAME}] was changed to [Warning]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of temperature sensor [{#NAME}] was changed to [Critical]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.temp.health[{#NAME}])="Critical"'
+                  tags:
+                    - tag: component
+                      value: temperature
+                - uuid: 4f81824629c54c0c82e8af967d46f9bb
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.temp.health[{#NAME}])<>"OK"'
+                  name: 'Health of temperature sensor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of temperature sensor [{#NAME}] was changed to [Warning]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.temp.health[{#NAME}])="Warning"'
+                  tags:
+                    - tag: component
+                      value: temperature
+            - uuid: bfa7ed886e74440b87b9400ae6381f56
+              name: 'Temperature Sensor [{#NAME}] ReadingCelsius'
+              type: DEPENDENT
+              key: 'graviton.temp.reading_celsius[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!°C'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].ReadingCelsius.first()'
+              master_item:
+                key: graviton.sensors.temp
+              tags:
+                - tag: Application
+                  value: temperature
+              trigger_prototypes:
+                - uuid: 8c869ef67a3e435baaae9f5be06895c5
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])>{#TR_UPPER_CRITICAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])<{#TR_LOWER_CRITICAL}
+                  name: 'Value [{ITEM.VALUE}°C] of temperature sensor [{#NAME}] out of CRITICAL range ({#TR_LOWER_CRITICAL}-{#TR_UPPER_CRITICAL})'
+                  priority: AVERAGE
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Value [{ITEM.VALUE}°C] of temperature sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])>{#TR_UPPER_FATAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])<{#TR_LOWER_FATAL}
+                  tags:
+                    - tag: component
+                      value: temperature
+                - uuid: 2e6265ad4e7d45fe888428a679943c66
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])>{#TR_UPPER_FATAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])<{#TR_LOWER_FATAL}
+                  name: 'Value [{ITEM.VALUE}°C] of temperature sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                  priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: temperature
+                - uuid: 5f3d7ebab602425790beeacdfba7fc59
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])>{#TR_UPPER_NON_CRITICAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])<{#TR_LOWER_NON_CRITICAL}
+                  name: 'Value [{ITEM.VALUE}°C] of temperature sensor [{#NAME}] out of NON CRITICAL range ({#TR_LOWER_NON_CRITICAL}-{#TR_UPPER_NON_CRITICAL})'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Value [{ITEM.VALUE}°C] of temperature sensor [{#NAME}] out of CRITICAL range ({#TR_LOWER_CRITICAL}-{#TR_UPPER_CRITICAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])>{#TR_UPPER_CRITICAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])<{#TR_LOWER_CRITICAL}
+                    - name: 'Value [{ITEM.VALUE}°C] of temperature sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])>{#TR_UPPER_FATAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.temp.reading_celsius[{#NAME}])<{#TR_LOWER_FATAL}
+                  tags:
+                    - tag: component
+                      value: temperature
+            - uuid: 6e6e7e4ed70548d1a6ca9e478eb65be1
+              name: 'Temperature Sensor [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.temp.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.temp
+              tags:
+                - tag: Application
+                  value: temperature
+              trigger_prototypes:
+                - uuid: 6a8d25576477488ab67d036ad46150a2
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.temp.state[{#NAME}])="Absent"'
+                  name: 'State of temperature sensor [{#NAME}] was changed to [Absent]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: temperature
+                - uuid: 8f51a2a2f82840a19f77e1293cc72924
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.temp.state[{#NAME}])<>"Enabled"'
+                  name: 'State of temperature sensor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of temperature sensor [{#NAME}] was changed to [Absent]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.temp.state[{#NAME}])="Absent"'
+                  tags:
+                    - tag: component
+                      value: temperature
+          master_item:
+            key: graviton.sensors.temp
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+            - lld_macro: '{#TR_LOWER_CRITICAL}'
+              path: $.LowerThresholdCritical
+            - lld_macro: '{#TR_LOWER_FATAL}'
+              path: $.LowerThresholdFatal
+            - lld_macro: '{#TR_LOWER_NON_CRITICAL}'
+              path: $.LowerThresholdNonCritical
+            - lld_macro: '{#TR_UPPER_CRITICAL}'
+              path: $.UpperThresholdCritical
+            - lld_macro: '{#TR_UPPER_FATAL}'
+              path: $.UpperThresholdFatal
+            - lld_macro: '{#TR_UPPER_NON_CRITICAL}'
+              path: $.UpperThresholdNonCritical
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var valueArr = JSON.parse(value);
+                  
+                  var result = [];
+                  
+                  for (var i in valueArr) {
+                    var element = valueArr[i];
+                    if (element["{#TR_LOWER_CRITICAL}"] == "") {
+                      element["{#TR_LOWER_CRITICAL}"] = "-9999999";
+                    }
+                    if (element["{#TR_LOWER_FATAL}"] == "") {
+                      element["{#TR_LOWER_FATAL}"] = "-9999999";
+                    }
+                    if (element["{#TR_LOWER_NON_CRITICAL}"] == "") {
+                      element["{#TR_LOWER_NON_CRITICAL}"] = "-9999999";
+                    }
+                  
+                    if (element["{#TR_UPPER_CRITICAL}"] == "") {
+                      element["{#TR_UPPER_CRITICAL}"] = "9999999";
+                    }
+                    if (element["{#TR_UPPER_FATAL}"] == "") {
+                      element["{#TR_UPPER_FATAL}"] = "9999999";
+                    }
+                    if (element["{#TR_UPPER_NON_CRITICAL}"] == "") {
+                      element["{#TR_UPPER_NON_CRITICAL}"] = "9999999";
+                    }
+                  
+                    if (element["LowerThresholdCritical"] == "") {
+                      element["LowerThresholdCritical"] = "-9999999";
+                    }
+                    if (element["LowerThresholdFatal"] == "") {
+                      element["LowerThresholdFatal"] = "-9999999";
+                    }
+                    if (element["LowerThresholdNonCritical"] == "") {
+                      element["LowerThresholdNonCritical"] = "-9999999";
+                    }
+                  
+                    if (element["UpperThresholdCritical"] == "") {
+                      element["UpperThresholdCritical"] = "9999999";
+                    }
+                    if (element["UpperThresholdFatal"] == "") {
+                      element["UpperThresholdFatal"] = "9999999";
+                    }
+                    if (element["UpperThresholdNonCritical"] == "") {
+                      element["UpperThresholdNonCritical"] = "9999999";
+                    }
+                  
+                    result.push(element);
+                  }
+                  
+                  return JSON.stringify(result);
+        - uuid: 4cb31722034c45d598a2e0593cb8e29f
+          name: 'Voltage Discovery'
+          type: DEPENDENT
+          key: graviton.voltage.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#STATE}'
+                value: Absent
+                operator: NOT_MATCHES_REGEX
+                formulaid: A
+          item_prototypes:
+            - uuid: 31cfffb32dce400198a722ed05cc3389
+              name: 'Voltage Sensor [{#NAME}] Health'
+              type: DEPENDENT
+              key: 'graviton.voltage.health[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].Health.first()'
+              master_item:
+                key: graviton.sensors.voltage
+              tags:
+                - tag: Application
+                  value: voltage
+              trigger_prototypes:
+                - uuid: 2bde95adeaaf4d6b92be2358dfa5486f
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.health[{#NAME}])="Critical"'
+                  name: 'Health of voltage sensor [{#NAME}] was changed to [Critical]'
+                  priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: voltage
+                - uuid: ea5e436720ff4fa18113718a8ab4d979
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.health[{#NAME}])="Warning"'
+                  name: 'Health of voltage sensor [{#NAME}] was changed to [Warning]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of voltage sensor [{#NAME}] was changed to [Critical]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.health[{#NAME}])="Critical"'
+                  tags:
+                    - tag: component
+                      value: voltage
+                - uuid: 17d8923246c242b59617b711c73b28e9
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.health[{#NAME}])<>"OK"'
+                  name: 'Health of voltage sensor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Health of voltage sensor [{#NAME}] was changed to [Warning]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.health[{#NAME}])="Warning"'
+                  tags:
+                    - tag: component
+                      value: voltage
+            - uuid: f2634191d0e44c29943410a3df37696a
+              name: 'Voltage Sensor [{#NAME}] ReadingVolts'
+              type: DEPENDENT
+              key: 'graviton.voltage.reading_volts[{#NAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '!V'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].ReadingVolts.first()'
+              master_item:
+                key: graviton.sensors.voltage
+              tags:
+                - tag: Application
+                  value: voltage
+              trigger_prototypes:
+                - uuid: 8c7f8545df7e49bbb37183106b269ce0
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])>{#TR_UPPER_CRITICAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])<{#TR_LOWER_CRITICAL}
+                  name: 'Value [{ITEM.VALUE} V] of voltage sensor [{#NAME}] out of CRITICAL range ({#TR_LOWER_CRITICAL}-{#TR_UPPER_CRITICAL})'
+                  priority: AVERAGE
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Value [{ITEM.VALUE} V] of voltage sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])>{#TR_UPPER_FATAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])<{#TR_LOWER_FATAL}
+                  tags:
+                    - tag: component
+                      value: voltage
+                - uuid: 1684e39ddcc04b40904206c535077232
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])>{#TR_UPPER_FATAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])<{#TR_LOWER_FATAL}
+                  name: 'Value [{ITEM.VALUE} V] of voltage sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                  priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: voltage
+                - uuid: 8482ef82cd9140e6afcccee5cca8ab49
+                  expression: |
+                    last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])>{#TR_UPPER_NON_CRITICAL}
+                    or
+                    last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])<{#TR_LOWER_NON_CRITICAL}
+                  name: 'Value [{ITEM.VALUE} V] of voltage sensor [{#NAME}] out of NON CRITICAL range ({#TR_LOWER_NON_CRITICAL}-{#TR_UPPER_NON_CRITICAL})'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Value [{ITEM.VALUE} V] of voltage sensor [{#NAME}] out of CRITICAL range ({#TR_LOWER_CRITICAL}-{#TR_UPPER_CRITICAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])>{#TR_UPPER_CRITICAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])<{#TR_LOWER_CRITICAL}
+                    - name: 'Value [{ITEM.VALUE} V] of voltage sensor [{#NAME}] out of FATAL range ({#TR_LOWER_FATAL}-{#TR_UPPER_FATAL})'
+                      expression: |
+                        last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])>{#TR_UPPER_FATAL}
+                        or
+                        last(/Graviton Tundra by HTTP/graviton.voltage.reading_volts[{#NAME}])<{#TR_LOWER_FATAL}
+                  tags:
+                    - tag: component
+                      value: voltage
+            - uuid: 57a4dd3daaf3458bb87a02a5885a331d
+              name: 'Voltage Sensor [{#NAME}] State'
+              type: DEPENDENT
+              key: 'graviton.voltage.state[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.Name==''{#NAME}'')].State.first()'
+              master_item:
+                key: graviton.sensors.voltage
+              tags:
+                - tag: Application
+                  value: voltage
+              trigger_prototypes:
+                - uuid: abab7d7d9cee416a8c1a74ca7a991562
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.state[{#NAME}])="Absent"'
+                  name: 'State of voltage sensor [{#NAME}] was changed to [Absent]'
+                  priority: WARNING
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: voltage
+                - uuid: 8b3649e2e90f4964a7b800ad5a6a7721
+                  expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.state[{#NAME}])<>"Enabled"'
+                  name: 'State of voltage sensor [{#NAME}] was changed to [{ITEM.VALUE}]'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'State of voltage sensor [{#NAME}] was changed to [Absent]'
+                      expression: 'last(/Graviton Tundra by HTTP/graviton.voltage.state[{#NAME}])="Absent"'
+                  tags:
+                    - tag: component
+                      value: voltage
+          master_item:
+            key: graviton.sensors.voltage
+          lld_macro_paths:
+            - lld_macro: '{#NAME}'
+              path: $.Name
+            - lld_macro: '{#STATE}'
+              path: $.State
+            - lld_macro: '{#TR_LOWER_CRITICAL}'
+              path: $.LowerThresholdCritical
+            - lld_macro: '{#TR_LOWER_FATAL}'
+              path: $.LowerThresholdFatal
+            - lld_macro: '{#TR_LOWER_NON_CRITICAL}'
+              path: $.LowerThresholdNonCritical
+            - lld_macro: '{#TR_UPPER_CRITICAL}'
+              path: $.UpperThresholdCritical
+            - lld_macro: '{#TR_UPPER_FATAL}'
+              path: $.UpperThresholdFatal
+            - lld_macro: '{#TR_UPPER_NON_CRITICAL}'
+              path: $.UpperThresholdNonCritical
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var valueArr = JSON.parse(value);
+                  
+                  var result = [];
+                  
+                  for (var i in valueArr) {
+                    var element = valueArr[i];
+                    if (element["{#TR_LOWER_CRITICAL}"] == "") {
+                      element["{#TR_LOWER_CRITICAL}"] = "-9999999";
+                    }
+                    if (element["{#TR_LOWER_FATAL}"] == "") {
+                      element["{#TR_LOWER_FATAL}"] = "-9999999";
+                    }
+                    if (element["{#TR_LOWER_NON_CRITICAL}"] == "") {
+                      element["{#TR_LOWER_NON_CRITICAL}"] = "-9999999";
+                    }
+                  
+                    if (element["{#TR_UPPER_CRITICAL}"] == "") {
+                      element["{#TR_UPPER_CRITICAL}"] = "9999999";
+                    }
+                    if (element["{#TR_UPPER_FATAL}"] == "") {
+                      element["{#TR_UPPER_FATAL}"] = "9999999";
+                    }
+                    if (element["{#TR_UPPER_NON_CRITICAL}"] == "") {
+                      element["{#TR_UPPER_NON_CRITICAL}"] = "9999999";
+                    }
+                  
+                    if (element["LowerThresholdCritical"] == "") {
+                      element["LowerThresholdCritical"] = "-9999999";
+                    }
+                    if (element["LowerThresholdFatal"] == "") {
+                      element["LowerThresholdFatal"] = "-9999999";
+                    }
+                    if (element["LowerThresholdNonCritical"] == "") {
+                      element["LowerThresholdNonCritical"] = "-9999999";
+                    }
+                  
+                    if (element["UpperThresholdCritical"] == "") {
+                      element["UpperThresholdCritical"] = "9999999";
+                    }
+                    if (element["UpperThresholdFatal"] == "") {
+                      element["UpperThresholdFatal"] = "9999999";
+                    }
+                    if (element["UpperThresholdNonCritical"] == "") {
+                      element["UpperThresholdNonCritical"] = "9999999";
+                    }
+                  
+                    result.push(element);
+                  }
+                  
+                  return JSON.stringify(result);
+      macros:
+        - macro: '{$API.PASSWORD}'
+          value: '<password>'
+          description: 'GRAVITON Redfish user password.'
+        - macro: '{$API.URL}'
+          value: 'https://<host>:<port>'
+          description: 'GRAVITON Redfish API URL in the format `<scheme>://<host>:<port>`.'
+        - macro: '{$API.USER}'
+          value: '<username>'
+          description: 'GRAVITON Redfish username.'
